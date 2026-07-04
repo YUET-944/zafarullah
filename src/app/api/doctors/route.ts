@@ -17,40 +17,40 @@ export async function GET(req: NextRequest) {
     const where = search
       ? {
           OR: [
-            { name: { contains: search, mode: 'insensitive' as const } },
+            { fullName: { contains: search, mode: 'insensitive' as const } },
             { clinicName: { contains: search, mode: 'insensitive' as const } },
           ],
         }
       : {};
 
     // Get all doctors with their visit count
-    const doctors = await prisma.referringDoctor.findMany({
+    const doctors = await prisma.doctor.findMany({
       where,
       include: {
         _count: {
           select: { visits: true }
         }
       },
-      orderBy: { name: 'asc' },
+      orderBy: { fullName: 'asc' },
     });
 
     // We also need the sum of totalAmount for their visits.
     // Since Prisma aggregate doesn't easily group by doctorId within a simple findMany relation,
     // we'll fetch the grouping and map it.
     const revenueGroups = await prisma.visit.groupBy({
-      by: ['referringDoctorId'],
+      by: ['doctorId'],
       _sum: {
         totalAmount: true,
       },
       where: {
-        referringDoctorId: { not: null }
+        doctorId: { not: null }
       }
     });
 
     const revenueMap = new Map();
     for (const group of revenueGroups) {
-      if (group.referringDoctorId) {
-        revenueMap.set(group.referringDoctorId, group._sum.totalAmount || 0);
+      if (group.doctorId) {
+        revenueMap.set(group.doctorId, group._sum.totalAmount || 0);
       }
     }
 
@@ -80,8 +80,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid input', details: parsed.error.format() }, { status: 400 });
     }
 
-    const doctor = await prisma.referringDoctor.create({
-      data: parsed.data,
+    const data = parsed.data;
+    const doctor = await prisma.doctor.create({
+      data: {
+        fullName: data.name,
+        phone: data.contactInfo,
+        clinicName: data.clinicName,
+      },
     });
 
     await prisma.auditLog.create({
@@ -90,7 +95,7 @@ export async function POST(req: NextRequest) {
         action: 'CREATE',
         entity: 'ReferringDoctor',
         entityId: doctor.id,
-        details: JSON.stringify({ name: doctor.name }),
+        details: JSON.stringify({ name: doctor.fullName }),
       },
     });
 

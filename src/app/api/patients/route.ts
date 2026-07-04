@@ -21,8 +21,7 @@ export async function GET(req: NextRequest) {
     const where = search
       ? {
           OR: [
-            { firstName: { contains: search, mode: 'insensitive' as const } },
-            { lastName: { contains: search, mode: 'insensitive' as const } },
+            { fullName: { contains: search, mode: 'insensitive' as const } },
             { patientCode: { contains: search, mode: 'insensitive' as const } },
             { phone: { contains: search, mode: 'insensitive' as const } },
           ],
@@ -71,15 +70,18 @@ export async function POST(req: NextRequest) {
     const data = parsed.data;
     const patientCode = await generatePatientCode();
 
+    const dob = new Date(data.dateOfBirth);
+    const ageDifMs = Date.now() - dob.getTime();
+    const ageDate = new Date(ageDifMs);
+    const age = Math.abs(ageDate.getUTCFullYear() - 1970);
+
     const patient = await prisma.patient.create({
       data: {
         patientCode,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        dateOfBirth: new Date(data.dateOfBirth),
+        fullName: `${data.firstName} ${data.lastName}`.trim(),
+        age,
         gender: data.gender,
-        phone: data.phone,
-        email: data.email,
+        phone: data.phone || '',
         address: data.address,
       },
     });

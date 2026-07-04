@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
         visitId: data.visitId,
         amount,
         method: data.method,
-        collectedBy: session.user.id,
+        receivedById: session.user.id,
       },
     });
 

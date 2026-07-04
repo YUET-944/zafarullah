@@ -6,16 +6,17 @@ import { doctorSchema } from '@/lib/validations/doctor';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const doctor = await prisma.referringDoctor.findUnique({
-      where: { id: params.id },
+    const doctor = await prisma.doctor.findUnique({
+      where: { id },
     });
 
     if (!doctor) {
@@ -31,9 +32,10 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -46,9 +48,14 @@ export async function PUT(
       return NextResponse.json({ error: 'Invalid input', details: parsed.error.format() }, { status: 400 });
     }
 
-    const doctor = await prisma.referringDoctor.update({
-      where: { id: params.id },
-      data: parsed.data,
+    const data = parsed.data;
+    const doctor = await prisma.doctor.update({
+      where: { id },
+      data: {
+        fullName: data.name,
+        phone: data.contactInfo,
+        clinicName: data.clinicName,
+      },
     });
 
     await prisma.auditLog.create({
@@ -70,16 +77,17 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user || session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    await prisma.referringDoctor.delete({
-      where: { id: params.id },
+    await prisma.doctor.delete({
+      where: { id },
     });
 
     await prisma.auditLog.create({
@@ -87,7 +95,7 @@ export async function DELETE(
         userId: session.user.id,
         action: 'DELETE',
         entity: 'ReferringDoctor',
-        entityId: params.id,
+        entityId: id,
         details: JSON.stringify({ deleted: true }),
       },
     });

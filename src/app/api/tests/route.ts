@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
       ? {
           OR: [
             { name: { contains: search, mode: 'insensitive' as const } },
-            { code: { contains: search, mode: 'insensitive' as const } },
+            // Test 'code' is not in DB, so we remove it from the OR query
           ],
         }
       : {};
@@ -63,11 +63,11 @@ export async function POST(req: NextRequest) {
     const test = await prisma.test.create({
       data: {
         name: data.name,
-        code: data.code,
-        defaultPrice: new Prisma.Decimal(data.defaultPrice),
-        normalRange: data.normalRange,
+        price: new Prisma.Decimal(data.defaultPrice),
+        refRangeText: data.normalRange,
         unit: data.unit,
         categoryId: data.categoryId,
+        turnaroundHours: 24,
       },
     });
 
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
         action: 'CREATE',
         entity: 'Test',
         entityId: test.id,
-        details: JSON.stringify({ code: test.code, price: data.defaultPrice }),
+        details: JSON.stringify({ name: test.name, price: data.defaultPrice }),
       },
     });
 

@@ -6,20 +6,21 @@ import puppeteer from 'puppeteer';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const visit = await prisma.visit.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         patient: true,
-        referringDoctor: true,
-        testResults: {
+        doctor: true,
+        visitTests: {
           include: {
             test: {
               include: {
@@ -37,7 +38,7 @@ export async function GET(
 
     // Group test results by category
     const categorizedResults: Record<string, any[]> = {};
-    visit.testResults.forEach(tr => {
+    visit.visitTests.forEach(tr => {
       const catName = tr.test.category?.name || 'Other Tests';
       if (!categorizedResults[catName]) {
         categorizedResults[catName] = [];
@@ -83,14 +84,14 @@ export async function GET(
 
         <div class="patient-info">
           <div class="info-col">
-            <div class="info-row"><span class="info-label">Patient Name:</span> ${visit.patient.firstName} ${visit.patient.lastName}</div>
+            <div class="info-row"><span class="info-label">Patient Name:</span> ${visit.patient.fullName}</div>
             <div class="info-row"><span class="info-label">Patient ID:</span> ${visit.patient.patientCode}</div>
             <div class="info-row"><span class="info-label">Age / Gender:</span> ${visit.patient.age} / ${visit.patient.gender}</div>
           </div>
           <div class="info-col">
             <div class="info-row"><span class="info-label">Visit Code:</span> ${visit.visitCode}</div>
             <div class="info-row"><span class="info-label">Date:</span> ${new Date(visit.createdAt).toLocaleDateString()}</div>
-            <div class="info-row"><span class="info-label">Ref. Doctor:</span> ${visit.referringDoctor ? `Dr. ${visit.referringDoctor.name}` : 'Self'}</div>
+            <div class="info-row"><span class="info-label">Ref. Doctor:</span> ${visit.doctor ? `Dr. ${visit.doctor.fullName}` : 'Self'}</div>
           </div>
         </div>
 
@@ -143,7 +144,7 @@ export async function GET(
     });
     const page = await browser.newPage();
     
-    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    await page.setContent(htmlContent, { waitUntil: 'load' });
     
     const pdfBuffer = await page.pdf({
       format: 'A4',
@@ -153,7 +154,7 @@ export async function GET(
 
     await browser.close();
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(Buffer.from(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `inline; filename="Report_${visit.visitCode}.pdf"`,

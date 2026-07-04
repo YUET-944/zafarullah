@@ -106,9 +106,9 @@ export default function DoctorsPage() {
             ) : (
               doctors.map((doc) => (
                 <TableRow key={doc.id}>
-                  <TableCell className="font-medium">Dr. {doc.name}</TableCell>
+                  <TableCell className="font-medium">Dr. {doc.fullName}</TableCell>
                   <TableCell>{doc.clinicName || '-'}</TableCell>
-                  <TableCell>{doc.contactInfo || '-'}</TableCell>
+                  <TableCell>{doc.phone || '-'}</TableCell>
                   <TableCell>{doc._count?.visits}</TableCell>
                   <TableCell className="text-green-600 font-semibold">
                     ${Number(doc.totalRevenue).toFixed(2)}

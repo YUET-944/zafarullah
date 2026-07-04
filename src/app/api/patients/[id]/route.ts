@@ -6,16 +6,17 @@ import { patientSchema } from '@/lib/validations/patient';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const patient = await prisma.patient.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         visits: {
           orderBy: { createdAt: 'desc' },
@@ -36,9 +37,10 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -53,15 +55,18 @@ export async function PUT(
 
     const data = parsed.data;
 
+    const dob = new Date(data.dateOfBirth);
+    const ageDifMs = Date.now() - dob.getTime();
+    const ageDate = new Date(ageDifMs);
+    const age = Math.abs(ageDate.getUTCFullYear() - 1970);
+
     const patient = await prisma.patient.update({
-      where: { id: params.id },
+      where: { id },
       data: {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        dateOfBirth: new Date(data.dateOfBirth),
+        fullName: `${data.firstName} ${data.lastName}`.trim(),
+        age,
         gender: data.gender,
-        phone: data.phone,
-        email: data.email,
+        phone: data.phone || '',
         address: data.address,
       },
     });

@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       data: {
         name,
         email,
-        password: hashedPassword,
+        passwordHash: hashedPassword,
         role,
       },
       select: {

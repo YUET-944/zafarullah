@@ -6,20 +6,21 @@ import { testResultSchema } from '@/lib/validations/visit';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const visitId = params.id;
+    const visitId = id;
     const visit = await prisma.visit.findUnique({
       where: { id: visitId },
       include: {
         patient: true,
-        testResults: {
+        visitTests: {
           include: {
             test: true,
           }
@@ -40,15 +41,16 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const visitId = params.id;
+    const visitId = id;
     const body = await req.json();
     const parsed = testResultSchema.safeParse(body);
 
@@ -60,28 +62,14 @@ export async function PUT(
 
     await prisma.$transaction(async (tx) => {
       for (const res of results) {
-        await tx.testResult.update({
+        await tx.visitTest.update({
           where: { id: res.id },
           data: {
-            value: res.value || null,
-            remarks: res.remarks || null,
-            status: res.value ? 'COMPLETED' : 'PENDING',
+            resultValue: res.value || null,
+            resultStatus: res.value ? ('COMPLETED' as const) : ('PENDING' as const),
+            enteredById: session.user.id,
+            enteredAt: new Date(),
           }
-        });
-      }
-
-      // Check if all results are completed to update visit status
-      const remainingPending = await tx.testResult.count({
-        where: {
-          visitId,
-          status: 'PENDING',
-        }
-      });
-
-      if (remainingPending === 0) {
-        await tx.visit.update({
-          where: { id: visitId },
-          data: { status: 'COMPLETED' }
         });
       }
     });

@@ -85,12 +85,12 @@ export default function VisitsPage() {
               visits.map((visit) => (
                 <TableRow key={visit.id}>
                   <TableCell className="font-medium">{visit.visitCode}</TableCell>
-                  <TableCell>{visit.patient?.firstName} {visit.patient?.lastName}</TableCell>
+                  <TableCell>{visit.patient?.fullName}</TableCell>
                   <TableCell>{new Date(visit.createdAt).toLocaleDateString()}</TableCell>
-                  <TableCell>{visit._count?.testResults}</TableCell>
+                  <TableCell>{visit._count?.visitTests}</TableCell>
                   <TableCell>
-                    <Badge variant={visit.status === 'COMPLETED' ? 'default' : 'secondary'}>
-                      {visit.status}
+                    <Badge variant={visit.paymentStatus === 'PAID' ? 'default' : 'secondary'}>
+                      {visit.paymentStatus}
                     </Badge>
                   </TableCell>
                   <TableCell>

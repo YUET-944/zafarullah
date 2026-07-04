@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,15 +13,16 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-export default function PatientDetailPage({ params }: { params: { id: string } }) {
+export default function PatientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const { id } = use(params);
   const [patient, setPatient] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchPatient() {
       try {
-        const res = await fetch(`/api/patients/${params.id}`);
+        const res = await fetch(`/api/patients/${id}`);
         const json = await res.json();
         if (json.data) {
           setPatient(json.data);
@@ -33,7 +34,7 @@ export default function PatientDetailPage({ params }: { params: { id: string } }
       }
     }
     fetchPatient();
-  }, [params.id]);
+  }, [id]);
 
   if (loading) {
     return <div>Loading patient details...</div>;

@@ -44,8 +44,8 @@ export async function POST(req: NextRequest) {
       data: {
         category: data.category,
         amount: new Prisma.Decimal(data.amount),
-        description: data.description || null,
-        recordedBy: session.user.id,
+        description: data.description || '',
+        recordedById: session.user.id,
       },
     });
 

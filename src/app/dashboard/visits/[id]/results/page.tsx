@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,8 +17,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-export default function ResultEntryPage({ params }: { params: { id: string } }) {
+export default function ResultEntryPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const { id } = use(params);
   const [error, setError] = useState('');
   const [visit, setVisit] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -36,15 +37,15 @@ export default function ResultEntryPage({ params }: { params: { id: string } }) 
   useEffect(() => {
     async function fetchVisit() {
       try {
-        const res = await fetch(`/api/visits/${params.id}/results`);
+        const res = await fetch(`/api/visits/${id}/results`);
         const json = await res.json();
         if (json.data) {
           setVisit(json.data);
           reset({
-            results: json.data.testResults.map((tr: any) => ({
+            results: json.data.visitTests.map((tr: any) => ({
               id: tr.id,
-              value: tr.value || '',
-              remarks: tr.remarks || '',
+              value: tr.resultValue || '',
+              remarks: '',
             }))
           });
         }
@@ -55,12 +56,12 @@ export default function ResultEntryPage({ params }: { params: { id: string } }) 
       }
     }
     fetchVisit();
-  }, [params.id, reset]);
+  }, [id, reset]);
 
   const onSubmit = async (data: TestResultFormValues) => {
     setError('');
     try {
-      const res = await fetch(`/api/visits/${params.id}/results`, {
+      const res = await fetch(`/api/visits/${id}/results`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -111,7 +112,7 @@ export default function ResultEntryPage({ params }: { params: { id: string } }) 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {visit.testResults.map((tr: any, index: number) => (
+                  {visit.visitTests.map((tr: any, index: number) => (
                     <TableRow key={tr.id}>
                       <TableCell className="font-medium">{tr.test.code}</TableCell>
                       <TableCell>{tr.test.name}</TableCell>

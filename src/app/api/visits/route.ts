@@ -19,8 +19,7 @@ export async function GET(req: NextRequest) {
       ? {
           OR: [
             { visitCode: { contains: search, mode: 'insensitive' as const } },
-            { patient: { firstName: { contains: search, mode: 'insensitive' as const } } },
-            { patient: { lastName: { contains: search, mode: 'insensitive' as const } } },
+            { patient: { fullName: { contains: search, mode: 'insensitive' as const } } },
           ],
         }
       : {};
@@ -29,9 +28,9 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         patient: true,
-        referringDoctor: true,
+        doctor: true,
         _count: {
-          select: { testResults: true },
+          select: { visitTests: true },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -72,7 +71,7 @@ export async function POST(req: NextRequest) {
 
     let totalAmount = 0;
     for (const t of tests) {
-      totalAmount += Number(t.defaultPrice);
+      totalAmount += Number(t.price);
     }
 
     const visitCode = await generateVisitCode();
@@ -82,9 +81,8 @@ export async function POST(req: NextRequest) {
         data: {
           visitCode,
           patientId: data.patientId,
-          referringDoctorId: data.referringDoctorId || null,
+          doctorId: data.referringDoctorId || null,
           totalAmount,
-          status: 'REGISTERED',
         },
       });
 
@@ -92,10 +90,10 @@ export async function POST(req: NextRequest) {
       const testResultsData = tests.map(t => ({
         visitId: newVisit.id,
         testId: t.id,
-        status: 'PENDING',
+        resultStatus: 'PENDING' as const,
       }));
 
-      await tx.testResult.createMany({
+      await tx.visitTest.createMany({
         data: testResultsData,
       });
 
