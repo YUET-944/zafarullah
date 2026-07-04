@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: moon_light_db
+    restart: always
+    environment:
+      POSTGRES_USER: mldc_user
+      POSTGRES_PASSWORD: mldc_password
+      POSTGRES_DB: moon_light_lis
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

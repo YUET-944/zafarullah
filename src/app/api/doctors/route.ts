@@ -1,0 +1,102 @@
+import { NextRequest, NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { doctorSchema } from '@/lib/validations/doctor';
+
+export async function GET(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const search = searchParams.get('search') || '';
+
+    const where = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' as const } },
+            { clinicName: { contains: search, mode: 'insensitive' as const } },
+          ],
+        }
+      : {};
+
+    // Get all doctors with their visit count
+    const doctors = await prisma.referringDoctor.findMany({
+      where,
+      include: {
+        _count: {
+          select: { visits: true }
+        }
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    // We also need the sum of totalAmount for their visits.
+    // Since Prisma aggregate doesn't easily group by doctorId within a simple findMany relation,
+    // we'll fetch the grouping and map it.
+    const revenueGroups = await prisma.visit.groupBy({
+      by: ['referringDoctorId'],
+      _sum: {
+        totalAmount: true,
+      },
+      where: {
+        referringDoctorId: { not: null }
+      }
+    });
+
+    const revenueMap = new Map();
+    for (const group of revenueGroups) {
+      if (group.referringDoctorId) {
+        revenueMap.set(group.referringDoctorId, group._sum.totalAmount || 0);
+      }
+    }
+
+    const doctorsWithAnalytics = doctors.map(doc => ({
+      ...doc,
+      totalRevenue: revenueMap.get(doc.id) || 0,
+    }));
+
+    return NextResponse.json({ data: doctorsWithAnalytics });
+  } catch (error) {
+    console.error('Error fetching doctors:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const parsed = doctorSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid input', details: parsed.error.format() }, { status: 400 });
+    }
+
+    const doctor = await prisma.referringDoctor.create({
+      data: parsed.data,
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: 'CREATE',
+        entity: 'ReferringDoctor',
+        entityId: doctor.id,
+        details: JSON.stringify({ name: doctor.name }),
+      },
+    });
+
+    return NextResponse.json({ data: doctor }, { status: 201 });
+  } catch (error) {
+    console.error('Error creating doctor:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}

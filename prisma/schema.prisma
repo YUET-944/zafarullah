@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  TECHNOLOGIST
+  RECEPTIONIST
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum PaymentStatus {
+  PAID
+  PARTIAL
+  PENDING
+}
+
+enum ResultStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  VERIFIED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  auditLogs    AuditLog[]
+}
+
+model Patient {
+  id          String   @id @default(cuid())
+  patientCode String   @unique // e.g. MLDC-20260703-0001, generate server-side
+  fullName    String
+  age         Int
+  gender      Gender
+  phone       String
+  address     String?
+  createdAt   DateTime @default(now())
+  visits      Visit[]
+}
+
+model Doctor {
+  id                String  @id @default(cuid())
+  fullName          String
+  clinicName        String?
+  phone             String?
+  commissionPercent Decimal @default(0)
+  visits            Visit[]
+}
+
+model TestCategory {
+  id    String @id @default(cuid())
+  name  String @unique // Hematology, Microbiology, etc.
+  tests Test[]
+}
+
+model Test {
+  id               String        @id @default(cuid())
+  name             String
+  categoryId       String
+  category         TestCategory  @relation(fields: [categoryId], references: [id])
+  unit             String?
+  refRangeLow      Decimal?
+  refRangeHigh     Decimal?
+  refRangeText     String?       // for non-numeric ranges
+  price            Decimal
+  turnaroundHours  Int
+  visitTests       VisitTest[]
+}
+
+model Visit {
+  id            String        @id @default(cuid())
+  visitCode     String        @unique
+  patientId     String
+  patient       Patient       @relation(fields: [patientId], references: [id])
+  doctorId      String?
+  doctor        Doctor?       @relation(fields: [doctorId], references: [id])
+  visitTests    VisitTest[]
+  payments      Payment[]
+  totalAmount   Decimal
+  paymentStatus PaymentStatus @default(PENDING)
+  createdAt     DateTime      @default(now())
+  reportUrl     String?
+}
+
+model VisitTest {
+  id           String       @id @default(cuid())
+  visitId      String
+  visit        Visit        @relation(fields: [visitId], references: [id])
+  testId       String
+  test         Test         @relation(fields: [testId], references: [id])
+  resultValue  String?
+  resultStatus ResultStatus @default(PENDING)
+  enteredById  String?
+  enteredAt    DateTime?
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  visitId   String
+  visit     Visit    @relation(fields: [visitId], references: [id])
+  amount    Decimal
+  method    String   // cash, card, bank transfer
+  receivedById String
+  createdAt DateTime @default(now())
+}
+
+model Expenditure {
+  id          String   @id @default(cuid())
+  description String
+  amount      Decimal
+  category    String
+  recordedById String
+  createdAt   DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String   // CREATE, UPDATE, DELETE
+  entity    String   // Patient, Visit, Test, etc.
+  entityId  String
+  details   Json?
+  createdAt DateTime @default(now())
+}
